@@ -11,9 +11,20 @@ import SimuladosModule from './modules/Simulados';
 import ChecklistModule from './modules/Checklist';
 
 export default function App() {
-  const { state, setState, resetData } = useAppState();
+  const { state, setState, resetData, loading } = useAppState();
   const [activeModule, setActiveModule] = useState<ModuleId>('dashboard');
   const [isMobileExpanded, setIsMobileExpanded] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-brand-bg flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-brand-accent border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-brand-muted text-sm font-medium animate-pulse">Sincronizando seus dados...</p>
+        </div>
+      </div>
+    );
+  }
 
   const renderModule = () => {
     switch (activeModule) {

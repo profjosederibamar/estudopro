@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { AppState } from '../types';
 
-const STORAGE_KEY = 'estudapro_data';
+const LOCAL_USER_ID_KEY = 'estudapro_user_id';
 
 const initialState: AppState = {
   examConfig: { name: 'Novo Concurso', position: 'Cargo Pretendido' },
@@ -40,29 +42,69 @@ const initialState: AppState = {
 };
 
 export function useAppState() {
-  const [state, setState] = useState<AppState>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return initialState;
-      }
+  const [state, setState] = useState<AppState>(initialState);
+  const [loading, setLoading] = useState(true);
+  const [userId] = useState(() => {
+    let id = localStorage.getItem(LOCAL_USER_ID_KEY);
+    if (!id) {
+      id = 'user_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem(LOCAL_USER_ID_KEY, id);
     }
-    return initialState;
+    return id;
   });
 
+  // Load initial data
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    const docRef = doc(db, 'users', userId);
+    
+    // Use onSnapshot for real-time updates (optional but good for multi-device sync if user opens it twice)
+    const unsub = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setState(docSnap.data() as AppState);
+      } else {
+        // If no data exists, initialize it in Firestore
+        setDoc(docRef, initialState);
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error("Error loading sync data:", error);
+      setLoading(false);
+    });
+
+    return () => unsub();
+  }, [userId]);
+
+  // Save data on changes (with simple debounce logic could be added, but Firestore handles frequency well)
+  // We use a separate effect for saving to avoid infinite loops if onSnapshot triggers state update
+  // Actually, a better pattern is to only update Firestore when the user makes a change, 
+  // but since we use a local state and standard setState, we can just sync it back.
+  // To avoid circular updates, we can either check for equality or use a ref.
+  
+  const saveToFirestore = useCallback(async (newState: AppState) => {
+    if (!userId) return;
+    try {
+      await setDoc(doc(db, 'users', userId), newState);
+    } catch (e) {
+      console.error("Error saving data:", e);
+    }
+  }, [userId]);
+
+  // Wrapped setState to trigger Firestore save
+  const updateState = useCallback((updater: any) => {
+    setState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveToFirestore(next);
+      return next;
+    });
+  }, [saveToFirestore]);
 
   const resetData = (module?: keyof AppState) => {
     if (module) {
-      setState(prev => ({ ...prev, [module]: initialState[module] }));
+      updateState((prev: AppState) => ({ ...prev, [module]: initialState[module] }));
     } else {
-      setState(initialState);
+      updateState(initialState);
     }
   };
 
-  return { state, setState, resetData };
+  return { state, setState: updateState, resetData, loading };
 }

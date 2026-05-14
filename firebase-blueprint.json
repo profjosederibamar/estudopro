@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "ExamConfig": {
+      "title": "Exam Configuration",
+      "description": "General settings for the target exam",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "position": { "type": "string" }
+      },
+      "required": ["name", "position"]
+    },
+    "ChecklistItem": {
+      "title": "Checklist Item",
+      "description": "A single item in a checklist",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "checked": { "type": "boolean" }
+      },
+      "required": ["id", "text", "checked"]
+    },
+    "Checklist": {
+      "title": "Checklist",
+      "description": "Full checklist data",
+      "type": "object",
+      "properties": {
+        "reasons": {
+          "type": "array",
+          "items": { "$ref": "ChecklistItem" }
+        },
+        "actions": {
+          "type": "array",
+          "items": { "$ref": "ChecklistItem" }
+        },
+        "intro": { "type": "string" }
+      },
+      "required": ["reasons", "actions", "intro"]
+    },
+    "AppState": {
+      "title": "App State",
+      "description": "Complete state of the application for a user",
+      "type": "object",
+      "properties": {
+        "examConfig": { "$ref": "ExamConfig" },
+        "weeklyHours": { "type": "array" },
+        "edital": { "type": "array" },
+        "cycles": { "type": "array" },
+        "diagnosis": { "type": "array" },
+        "simulados": { "type": "array" },
+        "checklist": { "$ref": "Checklist" }
+      },
+      "required": ["examConfig", "weeklyHours", "edital", "cycles", "diagnosis", "simulados", "checklist"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "AppState",
+      "description": "Personal data for a specific user"
+    }
+  }
+}

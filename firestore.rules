@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper: Validate ID
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // App State validation
+    function isValidAppState(data) {
+      return data.keys().hasAll(['examConfig', 'weeklyHours', 'edital', 'cycles', 'diagnosis', 'simulados', 'checklist'])
+        && data.examConfig is map
+        && data.weeklyHours is list
+        && data.edital is list
+        && data.cycles is list
+        && data.diagnosis is list
+        && data.simulados is list
+        && data.checklist is map;
+    }
+
+    match /users/{userId} {
+      allow read, write: if isValidId(userId) && (request.resource == null || isValidAppState(request.resource.data));
+    }
+  }
+}
